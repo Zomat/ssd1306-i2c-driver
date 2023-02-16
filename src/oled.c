@@ -1,172 +1,155 @@
-#include <stdio.h>
-#include <string.h>
-#include <pico/stdlib.h>
-#include <ctype.h>
-#include "pico/stdlib.h"
-#include "pico/binary_info.h"
-#include "hardware/i2c.h"
-#include "ssd1306_font_5x8.h"
-#include "ssd1306_font_8x8.h"
-#include "ssd1306_image.h"
-#include "image_raspberry.h"
-#include "image_heart.h"
-#include "image_maggie.h"
+#include "SSD1306_I2C.h"
 
-#define SSD1306_HEIGHT                  64
-#define SSD1306_WIDTH                   128
-
-#define SSD1306_I2C_ADDR                _u(0x3C)
-#define SSD1306_I2C_CLK                 400
-
-#define SSD1306_SET_DISPLAY_ON          _u(0xAF)
-#define SSD1306_SET_DISPLAY_OFF         _u(0xAF)
-#define SSD1306_SET_DISPLAY_NORMAL      _u(0xA6)
-#define SSD1306_SET_MEMORY_MODE         _u(0x20)
-#define SSD1306_PAGE_ADDRESSING_MODE    _u(0x02)
-
-#define SSD1306_CMD_REG                 _u(0x80)
-#define SSD1306_DATA_REG                _u(0x40)
-
-uint8_t (*font) = font8x8;
-
-void SSD1306_write_cmd(uint8_t cmd)
+void SSD1306_WriteCmd(SSD1306 *dev, uint8_t cmd)
 {
     uint8_t x[2] = {SSD1306_CMD_REG, cmd};
-    i2c_write_blocking(i2c_default, SSD1306_I2C_ADDR, x, count_of(x), false);
+    i2c_write_blocking(dev->i2cHandler, SSD1306_I2C_ADDR, x, 2, false);
 }
 
-void SSD1306_write_data(uint8_t data)
+void SSD1306_WriteData(SSD1306 *dev, uint8_t data)
 {
     uint8_t x[2] = {SSD1306_DATA_REG, data};
-    i2c_write_blocking(i2c_default, SSD1306_I2C_ADDR, x, count_of(x), false);
+    i2c_write_blocking(dev->i2cHandler, SSD1306_I2C_ADDR, x, 2, false);
+    
+    if (dev->column < 127) {
+        dev->column++;
+    } else {
+        dev->column = 0;
+    }
 }
 
-void SSD1306_set_cursor(uint8_t X, uint8_t Y)
+void SSD1306_SetCursor(SSD1306 *dev, uint8_t x, uint8_t y)
 {
-    SSD1306_write_cmd(0x00 + (X & 0x0F)); // set column lower addres
-    SSD1306_write_cmd(0x10 + ((X >> 4) & 0x0F)); // set column higher addres
-    SSD1306_write_cmd(0xB0 + Y); // set page addres
+    SSD1306_WriteCmd(dev, 0x00 + (X & 0x0F)); // set column lower addres
+    SSD1306_WriteCmd(dev, 0x10 + ((X >> 4) & 0x0F)); // set column higher addres
+    SSD1306_WriteCmd(dev, 0xB0 + Y); // set page addres
+
+    dev->column   = X;
+    dev->page     = Y;
 }
 
-void SSD1306_clear_display()
+void SSD1306_NextLine(SSD1306 *dev)
+{
+    if (dev->page == SSD1306_PAGES-1) {
+        return;
+    }
+
+    SSD1306_SetCursor(dev, 0, dev->page+1);
+}
+
+void SSD1306_ClearDisplay(SSD1306 *dev)
 {
     for (uint8_t page = 0; page < 8; page++) {
-        SSD1306_set_cursor(0, page);
+        SSD1306_SetCursor(dev, 0, page);
         for (uint8_t column = 0; column < 128; column++) {
-            SSD1306_write_data(0x00);
+            SSD1306_WriteData(dev, 0x00);
         }
     }
 
-    SSD1306_set_cursor(0, 0);
+    SSD1306_SetCursor(dev, 0, 0);
 }
 
-uint SSD1306_get_font_index(char ch)
+uint SSD1306_GetFontIndex(char ch, uint font_width)
 {
-    return (uint)((ch-0x20)*0x08);
+    return (uint)((ch-0x20)*font_width);
 }
 
-void SSD1306_write_char(char ch)
+void SSD1306_WriteChar(SSD1306 *dev, char ch)
 {
-    uint char_index = SSD1306_get_font_index(ch);
-    for (uint8_t i = 0; i < 8; i++) {
-        SSD1306_write_data(*(font+char_index+i));
-        printf("%d \n", char_index+i);
+    uint8_t font_width = dev->fontPtr->width;
+    uint char_index = SSD1306_GetFontIndex(ch, font_width);
+
+    if (dev->column + font_width >= SSD1306_WIDTH 
+        && dev->page < SSD1306_PAGES-1) {
+        SSD1306_SetCursor(dev, 0, dev->page+1);
+        
+        // If space, dont print it
+        if (ch == 0x20) {
+            return;
+        }
+    } 
+
+    for (uint8_t i = 0; i < font_width; i++) {
+        SSD1306_WriteData(dev, *((dev->fontPtr->font)+char_index+i));
     }
 }
 
-void SSD1306_write_text(char *str)
+void SSD1306_WriteText(SSD1306 *dev, char *str)
 {
     for (uint i = 0; i < strlen(str); i++) {
-        SSD1306_write_char(toupper(str[i]));
+        SSD1306_WriteChar(dev, toupper(str[i]));
     }
 }
 
-void SSD1306_write_image(struct SSD1306_image* image, uint8_t x, uint8_t y)
+void SSD1306_WriteImage(SSD1306 *dev, SSD1306_image *image, uint8_t x, uint8_t y)
 {
-    uint8_t img_parts = image->height/8;
+    uint8_t img_parts = image->height/SSD1306_PAGE_HEIGHT;
     for (uint i = 0; i < img_parts; i++) {
-        SSD1306_set_cursor(x, i+y);
+        SSD1306_SetCursor(dev, x, i+y);
         for (uint j = 0; j < image->width; j++) {
-            SSD1306_write_data(image->image[(i*image->width)+j]);
+            SSD1306_WriteData(dev, image->image[(i*image->width)+j]);
         }
     }
 }
 
-void SSD1306_init()
+void SSD1306_SetFont(SSD1306 *dev, char *size)
 {
-    SSD1306_write_cmd(SSD1306_SET_DISPLAY_ON);
-    SSD1306_write_cmd(SSD1306_SET_DISPLAY_NORMAL);
-    SSD1306_write_cmd(SSD1306_SET_MEMORY_MODE);
-    SSD1306_write_cmd(SSD1306_PAGE_ADDRESSING_MODE);
-    SSD1306_write_cmd(0x8D); //charge pump
-    SSD1306_write_cmd(0x14);
-    SSD1306_clear_display();
+    if (size == "sm") {
+        dev->fontPtr = &font3x5;
+        return;
+    }
+
+    if (size == "md") {
+        dev->fontPtr = &font5x8;
+        return;
+    }
+
+    if (size == "lg") {
+        dev->fontPtr = &font8x8;
+        return;
+    }
+}
+
+void SSD1306_init(SSD1306 *dev, i2c_inst_t *i2cHandler)
+{
+    dev->i2cHandler = i2cHandler;
+
+    SSD1306_WriteCmd(dev, SSD1306_SET_DISPLAY_ON);
+    SSD1306_WriteCmd(dev, SSD1306_SET_DISPLAY_NORMAL);
+    SSD1306_WriteCmd(dev, SSD1306_SET_MEMORY_MODE);
+    SSD1306_WriteCmd(dev, SSD1306_PAGE_ADDRESSING_MODE);
+    SSD1306_WriteCmd(dev, 0x8D); //charge pump
+    SSD1306_WriteCmd(dev, 0x14);
+    SSD1306_ClearDisplay(dev);
+
+    SSD1306_SetFont(dev, "md");
 }
 
 int main()
 {
     stdio_init_all();
-    sleep_ms(3000);
-    printf("Initalizing \n");
-    // I2C is "open drain", pull ups to keep signal high when no data is being
-    // sent
+    sleep_ms(2000);
+
+    // I2C is "open drain", 
+    // pull ups to keep signal high when no data is beingsent
     i2c_init(i2c_default, SSD1306_I2C_CLK * 1000);
     gpio_set_function(PICO_DEFAULT_I2C_SDA_PIN, GPIO_FUNC_I2C);
     gpio_set_function(PICO_DEFAULT_I2C_SCL_PIN, GPIO_FUNC_I2C);
     gpio_pull_up(PICO_DEFAULT_I2C_SDA_PIN);
     gpio_pull_up(PICO_DEFAULT_I2C_SCL_PIN);
 
-    SSD1306_init();
+    SSD1306 dev = {};
 
-    // SSD1306_write_text("#OPRSTUW");
-    SSD1306_set_cursor(0, 0);
-    SSD1306_write_text("SSD1306 DRIVER");
-    SSD1306_set_cursor(0, 1);
-    SSD1306_write_text("RPI");
-    SSD1306_set_cursor(0, 2);
-    SSD1306_write_text("Mateusz Zolisz 2023");
+    SSD1306_init(&dev, i2c_default);
 
-    // uint img_parts;
+    SSD1306_WriteText(&dev, "Testowy Tekst");
+    SSD1306_SetFont(&dev, "sm");
+    SSD1306_NextLine(&dev);
+    SSD1306_WriteText(&dev, "Testowy maly Tekst");
 
-    // struct SSD1306_image* image = &image_raspberry;
-    // struct SSD1306_image* image2 = &image_heart;
-
-    SSD1306_write_image(&image_raspberry, 0, 4);
-    SSD1306_write_image(&image_raspberry, image_raspberry.width + 12, 4);
-    SSD1306_write_image(&image_raspberry, image_raspberry.width*2 + 24, 4);
-    // for (int x = 0; 1; x+=5) {
-    //     img_parts = image->height/8;
-    //     for (uint i = 0; i < img_parts; i++) {
-    //         SSD1306_set_cursor(x, i);
-    //         for (uint j = 0; j < image->width; j++) {
-    //             SSD1306_write_data(image->image[(i*image->width)+j]);
-    //         }
-    //     }
-
-    //     img_parts = image2->height/8;
-    //     for (uint i = 0; i < img_parts; i++) {
-    //         SSD1306_set_cursor(x, i+4);
-    //         for (uint j = 0; j < image2->width; j++) {
-    //             SSD1306_write_data(image2->image[(i*image2->width)+j]);
-    //         }
-    //     }
-
-    //     sleep_ms(200);
-
-    //     for (uint i = 0; i < img_parts; i++) {
-    //         SSD1306_set_cursor(x, i+4);
-    //         for (uint j = 0; j < image2->width; j++) {
-    //             SSD1306_write_data(0x00);
-    //         }
-    //     }
-
-    //     for (uint i = 0; i < img_parts; i++) {
-    //         SSD1306_set_cursor(x, i);
-    //         for (uint j = 0; j < image->width; j++) {
-    //             SSD1306_write_data(0x00);
-    //         }
-    //     }
-    // }    
+    SSD1306_WriteImage  (&dev, &image_heart, 0, 4);
+    SSD1306_WriteImage  (&dev, &image_heart, image_heart.width + 12, 4);
+    SSD1306_WriteImage  (&dev, &image_heart, image_heart.width*2 + 24, 4); 
 
     for (;;) {
         //

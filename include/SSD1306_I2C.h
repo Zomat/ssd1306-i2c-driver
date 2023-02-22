@@ -1,7 +1,7 @@
 /*
 * SSD1306 Oled Display I2C Driver
 * Creator: Mateusz Zolisz
-* Date: 16.02.2023
+* 2023
 */
 #ifndef _SSD1306_I2C_H_
 #define _SSD1306_I2C_H_
@@ -14,10 +14,9 @@
 #include "hardware/i2c.h"
 #include "ssd1306_fonts.h"
 
-// Option
+// Include images
 #include "image_raspberry.h"
 #include "image_heart.h"
-#include "image_maggie.h"
 
 #define SSD1306_HEIGHT                  64
 #define SSD1306_WIDTH                   128
@@ -59,6 +58,8 @@ void SSD1306_init();
  * DISPLAY FUNCTIONS
  */
 void SSD1306_clearDisplay(SSD1306* dev);
+void SSD1306_ClearPage(SSD1306* dev, uint8_t page);
+void SSD1306_ClearSpace(SSD1306* dev, uint8_t x0, uint8_t x1, uint8_t page0, uint8_t page1);
 void SSD1306_WriteText(SSD1306* dev, char *str);
 void SSD1306_WriteImage(SSD1306* dev, SSD1306_image* image, uint8_t x, uint8_t y);
 void SSD1306_SetCursor(SSD1306 *dev, uint8_t x, uint8_t y);

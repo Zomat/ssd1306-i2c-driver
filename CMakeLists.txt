@@ -12,7 +12,7 @@ pico_sdk_init()
 FILE(GLOB oled_includes includes/*.h)
 
 add_executable(oled
-    src/oled.c
+    src/main.c
     ${oled_includes}
 )
 

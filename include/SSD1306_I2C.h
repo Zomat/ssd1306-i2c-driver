@@ -57,7 +57,7 @@ void SSD1306_init();
 /**
  * DISPLAY FUNCTIONS
  */
-void SSD1306_clearDisplay(SSD1306* dev);
+void SSD1306_ClearDisplay(SSD1306* dev);
 void SSD1306_ClearPage(SSD1306* dev, uint8_t page);
 void SSD1306_ClearSpace(SSD1306* dev, uint8_t x0, uint8_t x1, uint8_t page0, uint8_t page1);
 void SSD1306_WriteText(SSD1306* dev, char *str);

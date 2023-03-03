@@ -1,4 +1,4 @@
-#include "SSD1306_I2C.c"
+#include "SSD1306_I2C.h"
 
 /**
  * Example demo code for usage of SSD1306 I2C Driver.

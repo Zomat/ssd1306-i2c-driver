@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 pico_sdk_init()
 
-FILE(GLOB oled_includes includes/*.h)
+FILE(GLOB oled_includes include/*.c)
 
 add_executable(oled
     src/main.c

@@ -174,6 +174,16 @@ void SSD1306_SetFont(SSD1306 *dev, char *size)
     }
 }
 
+void SSD1306_WritePixel(SSD1306 *dev, uint8_t x, uint8_t y) {
+    uint8_t actualPage = dev->page;
+    uint8_t actualColumn = dev->column;
+
+    SSD1306_SetCursor(dev, x, (y / SSD1306_PAGE_HEIGHT));
+    SSD1306_WriteData(dev, (1 << (y % SSD1306_PAGE_HEIGHT)));
+
+    SSD1306_SetCursor(dev, actualColumn, actualPage);
+}
+
 void SSD1306_init(SSD1306 *dev, i2c_inst_t *i2cHandler)
 {
     dev->i2cHandler = i2cHandler;

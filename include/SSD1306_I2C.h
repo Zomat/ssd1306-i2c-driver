@@ -65,5 +65,6 @@ void SSD1306_WriteImage(SSD1306* dev, SSD1306_image* image, uint8_t x, uint8_t y
 void SSD1306_SetCursor(SSD1306 *dev, uint8_t x, uint8_t y);
 void SSD1306_NextLine(SSD1306 *dev);
 void SSD1306_SetFont(SSD1306* dev, char *size);
+void SSD1306_WritePixel(SSD1306 *dev, uint8_t x, uint8_t y);
 
 #endif

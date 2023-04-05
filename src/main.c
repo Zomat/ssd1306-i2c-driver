@@ -35,8 +35,22 @@ int main()
     SSD1306_SetFont(&dev, "8x16");
     char str[3];
    
-    SSD1306_SetCursor(&dev, 0, 5);
+    // //SSD1306_SetCursor(&dev, 0, 5);
+    // for (size_t i = 0; i < SSD1306_WIDTH; i++)
+    // {
+    //     SSD1306_WritePixel(&dev, i, 0);
+    // }
+    // for (size_t i = 0; i < SSD1306_WIDTH; i++)
+    // {
+    //     SSD1306_WritePixel(&dev, i, 8);
+    // }
+    // for (size_t i = 0; i < SSD1306_WIDTH; i++)
+    // {
+    //     SSD1306_WritePixel(&dev, i, 16);
+    // }
     
+    SSD1306_SetCursor(&dev, 0, 5);
+
     for (int i = 10; i > 0; i--) {
         SSD1306_ClearSpace(&dev, 0, 16, 5, 6);
         SSD1306_SetCursor(&dev, 0, 5);
